@@ -91,7 +91,7 @@ def process(job):
     rec = {"book": book, "source": str(src), "outcome": None, "reason": None,
            "pages": None, "outline_entries": None, "outline_depth": None,
            "has_page_labels": None, "split_level": None, "chapters": None,
-           "repaired": None, "producer": None, "creator": None,
+           "repaired": None, "producer": None, "creator": None, "outline": None,
            "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds")}
 
     def done(outcome, reason=None):
@@ -116,7 +116,8 @@ def process(job):
 
         toc = doc.get_toc(simple=True)
         valid = [(lvl, p) for lvl, _, p in toc if 1 <= p <= doc.page_count]
-        rec.update(outline_entries=len(toc), outline_depth=max((lvl for lvl, _ in valid), default=None))
+        rec.update(outline_entries=len(toc), outline_depth=max((lvl for lvl, _ in valid), default=None),
+                   outline=[{"level": lvl, "title": re.sub(r"\s+", " ", t).strip(), "page": p} for lvl, t, p in toc])
         if not valid:
             return done("skipped", "no_outline")
         if len(valid) == 1:

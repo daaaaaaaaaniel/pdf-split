@@ -126,6 +126,7 @@ Each line of `results.jsonl`:
 | `reason` | for skipped/error: `no_outline`, `single_entry_outline`, `encrypted`, `unreadable: …`, `suspect_outline: <check>`, `repaired_on_open`, or the exception |
 | `pages` | page count (null if the file never opened) |
 | `outline_entries` | raw bookmark count |
+| `outline` | every bookmark as `{"level", "title", "page"}`, in document order; `page` is the 1-based PDF page, or -1 for a bookmark with no destination |
 | `outline_depth` | deepest outline level that points at a real page (1 = flat). Greater than `split_level` means the book had sub-chapter bookmarks, which are carried into the chapter files |
 | `has_page_labels` | whether the source defines its own page labels |
 | `split_level` | outline level used as chapters |
