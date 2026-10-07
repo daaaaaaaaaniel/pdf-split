@@ -326,7 +326,10 @@ bookmarks were lost lands in `no_outline` in pass 2, like any other.
   A book that was mid-write is left as `.tmp-<book>/`, which is deleted at
   the next start and the book is examined again.
 - **Resuming**: rerun the same command. A book with an output folder is done.
-  A file in the log was examined. Everything else is work.
+  A file in the log was examined. Everything else is work. After an interrupt
+  the two can differ by a book or two: a worker may have finished a folder in
+  the instant before the main process stopped writing the log. Such a book is
+  correctly treated as done, but has no log line.
 - **Redoing one book**: delete its output folder, then run with `--retry`.
   (Without `--retry`, the log line keeps it skipped.)
 - **Redoing everything**: delete `<DST>` and run again. Or delete only
