@@ -176,6 +176,7 @@ def process_file(args: tuple) -> dict:
         "reason": None,
         "pages": None,
         "outline_entries": None,
+        "outline_depth": None,
         "split_level": None,
         "chapters": None,
         "repaired": None,
@@ -218,9 +219,11 @@ def process_file(args: tuple) -> dict:
 
         toc = doc.get_toc(simple=True)
         rec["outline_entries"] = len(toc)
-        valid_entries = sum(1 for _, _, p in toc if 1 <= p <= doc.page_count)
+        valid = [(lvl, p) for lvl, _, p in toc if 1 <= p <= doc.page_count]
+        valid_entries = len(valid)
         if valid_entries == 0:
             return done("skipped", "no_outline")
+        rec["outline_depth"] = max(lvl for lvl, _ in valid)
         if valid_entries == 1:
             # a single bookmark is a title, not a table of contents
             return done("skipped", "single_entry_outline")
@@ -315,11 +318,14 @@ def write_summary(log_path: Path, summary_path: Path, elapsed: float | None = No
                 except (ValueError, KeyError):
                     continue
     repaired = 0
+    nested = 0
     for r in seen.values():
         outcomes[r["outcome"]] += 1
         repaired += 1 if r.get("repaired") else 0
-        if r["outcome"] == "split":
+        if r["outcome"] in ("split", "would_split"):
             chapters_total += r.get("chapters") or 0
+            if (r.get("outline_depth") or 0) > (r.get("split_level") or 0):
+                nested += 1
         if r["outcome"] in ("skipped", "error"):
             reasons[(r["outcome"], (r.get("reason") or "").split(":")[0])] += 1
     lines = [f"split_library.py summary  ({datetime.now().isoformat(timespec='seconds')})", ""]
@@ -328,6 +334,7 @@ def write_summary(log_path: Path, summary_path: Path, elapsed: float | None = No
         lines.append(f"  {k:<13}{v:>7}")
     if chapters_total:
         lines.append(f"  chapter files written: {chapters_total}")
+        lines.append(f"  books with bookmarks nested below the chapter level: {nested}")
     if repaired:
         lines.append(f"  files whose index needed repair on open: {repaired}")
     if reasons:

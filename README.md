@@ -120,6 +120,7 @@ Each line of `results.jsonl`:
 | `reason` | for skipped/error: `no_outline`, `single_entry_outline`, `encrypted`, `unreadable: …`, `suspect_outline: <check>`, `no_pages`, `repaired_on_open`, or the exception |
 | `pages` | page count (null if the file never opened) |
 | `outline_entries` | raw bookmark count |
+| `outline_depth` | deepest outline level that points at a real page (1 = flat). Greater than `split_level` means the book had sub-chapter bookmarks, which are carried into the chapter files |
 | `split_level` | outline level used as chapters |
 | `chapters` | number of chapters found at that level |
 | `repaired` | whether MuPDF repaired the file's index on open |
