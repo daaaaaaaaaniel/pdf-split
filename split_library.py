@@ -154,7 +154,9 @@ def process(job):
                     except Exception:  # noqa: BLE001  (irregular hierarchy: chapter file gets no bookmarks)
                         pass
                 out.set_page_labels(page_labels(doc, start, end))
-                out.set_metadata({**{k: v for k, v in meta.items() if v}, "title": clean_title(title)})
+                # the chapter file carries the source's metadata unchanged (title, author, ...);
+                # only its creation date is its own
+                out.set_metadata({**meta, "creationDate": pymupdf.get_pdf_now()})
                 out.save(tmp / name, garbage=1)
                 written += out.page_count
                 out.close()
