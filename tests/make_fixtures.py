@@ -85,6 +85,13 @@ def main(out: Path):
     doc.save(out / "labelled book.pdf")
     doc.close()
 
+    # 10c. a sub-bookmark whose page lies in a later chapter than its parent: inside
+    #      Chapter 2 the first nested entry is then a grandchild with no parent, which
+    #      PyMuPDF refuses -> Chapter 2 gets no bookmarks, listed in bookmarks_dropped
+    make(out / "stray bookmark.pdf", 20, [
+        [1, "Chapter 1", 1], [2, "1.1", 3], [3, "1.1.1 points into chapter 2", 12],
+        [1, "Chapter 2", 10], [2, "2.1 Fine", 14]])
+
     # 11. corrupt file (truncated)
     good = out / "plain book.pdf"
     data = good.read_bytes()

@@ -92,6 +92,7 @@ def process(job):
            "pages": None, "outline_entries": None, "outline_depth": None,
            "has_page_labels": None, "split_level": None, "chapters": None,
            "repaired": None, "producer": None, "creator": None, "outline": None,
+           "bookmarks_dropped": [],
            "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds")}
 
     def done(outcome, reason=None):
@@ -152,8 +153,8 @@ def process(job):
                               for lvl, t, p in toc if lvl > level and start <= p <= end]
                     try:
                         out.set_toc(nested)
-                    except Exception:  # noqa: BLE001  (irregular hierarchy: chapter file gets no bookmarks)
-                        pass
+                    except Exception:  # noqa: BLE001  (a nested entry has no parent in this file)
+                        rec["bookmarks_dropped"].append(title)
                 out.set_page_labels(page_labels(doc, start, end))
                 # the chapter file carries the source's metadata unchanged (title, author, ...);
                 # only its creation date is its own

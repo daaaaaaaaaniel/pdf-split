@@ -133,6 +133,7 @@ Each line of `results.jsonl`:
 | `chapters` | number of chapters found at that level |
 | `repaired` | whether MuPDF repaired the file's index on open |
 | `producer`, `creator` | PDF metadata; useful for spotting which tool or publisher produced the problem files |
+| `bookmarks_dropped` | titles of chapter files written without their nested bookmarks, because a sub-bookmark points at a page in a different chapter from its parent, leaving an entry with no parent in the chapter file, which PyMuPDF refuses to write. Normally `[]` |
 | `timestamp` | when the file was examined (UTC) |
 
 To see what's in the skipped pile:
