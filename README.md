@@ -59,6 +59,8 @@ Options:
    not the pages, so this is cheap even for a 100 MB scan.
 2. Encrypted, unreadable or zero pages → skipped.
 3. Read the outline. No entries pointing at a valid page → `no_outline`.
+   Exactly one entry → `single_entry_outline` (a lone bookmark is a title,
+   not a table of contents; common in single-chapter PDFs).
 4. Chapter level = the shallowest outline level with at least two distinct
    start pages. This skips a single root bookmark that wraps the whole book.
    Note: if a book's top level is "Part I / Part II", it is split by part.
@@ -115,7 +117,7 @@ Each line of `results.jsonl`:
 | `book` | source filename without `.pdf` |
 | `source` | absolute path |
 | `outcome` | `split`, `would_split` (dry run), `skipped`, `error` |
-| `reason` | for skipped/error: `no_outline`, `encrypted`, `unreadable: …`, `suspect_outline: <check>`, `no_pages`, `repaired_on_open`, or the exception |
+| `reason` | for skipped/error: `no_outline`, `single_entry_outline`, `encrypted`, `unreadable: …`, `suspect_outline: <check>`, `no_pages`, `repaired_on_open`, or the exception |
 | `pages` | page count (null if the file never opened) |
 | `outline_entries` | raw bookmark count |
 | `split_level` | outline level used as chapters |

@@ -54,6 +54,9 @@ def main(out: Path):
     # 6. encrypted
     make(out / "encrypted.pdf", 10, [[1, "A", 1], [1, "B", 5]], encrypt=True)
 
+    # 6b. outline with exactly one bookmark -> single_entry_outline
+    make(out / "one bookmark.pdf", 18, [[1, "The Article Title", 1]])
+
     # 7. outline with a single chapter -> suspect
     make(out / "one chapter.pdf", 15, [[1, "Everything", 1], [1, "Also everything", 1]])
 

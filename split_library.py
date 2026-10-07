@@ -218,9 +218,13 @@ def process_file(args: tuple) -> dict:
 
         toc = doc.get_toc(simple=True)
         rec["outline_entries"] = len(toc)
-        level, chapters = choose_split_level(toc, doc.page_count)
-        if level is None:
+        valid_entries = sum(1 for _, _, p in toc if 1 <= p <= doc.page_count)
+        if valid_entries == 0:
             return done("skipped", "no_outline")
+        if valid_entries == 1:
+            # a single bookmark is a title, not a table of contents
+            return done("skipped", "single_entry_outline")
+        level, chapters = choose_split_level(toc, doc.page_count)
         rec["split_level"] = level
         rec["chapters"] = len(chapters)
 
