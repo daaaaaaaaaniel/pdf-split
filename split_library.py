@@ -3,7 +3,7 @@
 embedded outline (bookmarks). Files without a usable outline are left alone and
 logged with a reason. Requires PyMuPDF (pip install pymupdf).
 
-    python split_library.py SRC [DST] [--dry-run] [--limit N] [--workers N]
+    python3 split_library.py SRC [DST] [--dry-run] [--limit N] [--workers N]
                                       [--level N] [--retry] [--include-repaired]
 """
 import argparse

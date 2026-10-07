@@ -29,8 +29,11 @@ keep all three.
 
 ## 2. Requirements and installation
 
-- Python 3.9 or later.
-- PyMuPDF: `pip install pymupdf`. Nothing else.
+- Python 3.9 or later. On macOS the command is `python3`, never `python`.
+- PyMuPDF, installed into that same Python: `python3 -m pip install pymupdf`.
+  Nothing else. (A `brew install pymupdf` goes into Homebrew's own Python,
+  `/opt/homebrew/bin/python3`, which may not be the `python3` your shell finds
+  first. `python3 -c "import pymupdf"` tells you whether the two line up.)
 - macOS, Linux or Windows. Local disk for both input and output; not a
   cloud-synced folder.
 - Free space: the output is somewhat larger than the input, because fonts and
@@ -40,13 +43,13 @@ keep all three.
 
 ```
 # 1. Examine every file, write nothing. Minutes, not hours.
-python split_library.py /path/to/library --dry-run
+python3 split_library.py /path/to/library --dry-run
 
 # 2. Split a random sample for real and open the results.
-python split_library.py /path/to/library --limit 20
+python3 split_library.py /path/to/library --limit 20
 
 # 3. Split everything.
-python split_library.py /path/to/library
+python3 split_library.py /path/to/library
 ```
 
 The full run can be interrupted at any point (Ctrl-C, or the machine going
@@ -60,7 +63,7 @@ folder next to the library, named after it with `-split` added. So for
 the output anywhere else, give that path as the second argument:
 
 ```
-python split_library.py /Volumes/X/my-library /Volumes/Y/splits
+python3 split_library.py /Volumes/X/my-library /Volumes/Y/splits
 ```
 
 To change the default itself, edit the `OUTPUT_DIR` constant at the top of
@@ -69,7 +72,7 @@ the script (section 12).
 ## 4. Command reference
 
 ```
-python split_library.py SRC [DST] [--dry-run] [--limit N] [--workers N]
+python3 split_library.py SRC [DST] [--dry-run] [--limit N] [--workers N]
                                   [--level N] [--retry] [--include-repaired]
 ```
 
@@ -307,10 +310,10 @@ jq -s 'group_by(.book) | map(last) | .[] | [.outcome, .book] | @tsv' -r results.
 
 ```
 # Pass 1: clean files with usable outlines.
-python split_library.py LIB
+python3 split_library.py LIB
 
 # Pass 2: files MuPDF had to repair. Split if the recovered outline passes the checks.
-python split_library.py LIB --retry --include-repaired
+python3 split_library.py LIB --retry --include-repaired
 
 # Pass 3: no_outline, single_entry_outline and suspect_outline files remain in
 # the log for a separate, future tool (printed-TOC parsing or OCR). Not this script.
@@ -399,8 +402,8 @@ with parts (for `--level`), a truncated file, a non-PDF, an uppercase
 extension, and files that must be ignored. Run the script on it:
 
 ```
-python tests/make_fixtures.py /tmp/lib
-python split_library.py /tmp/lib /tmp/lib-split
+python3 tests/make_fixtures.py /tmp/lib
+python3 split_library.py /tmp/lib /tmp/lib-split
 ```
 
 Expected: 9 split, the rest skipped with the reason named in the fixture

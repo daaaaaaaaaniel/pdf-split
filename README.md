@@ -5,9 +5,9 @@ chapter, using each file's embedded outline (bookmarks). Files without usable
 bookmarks are left alone and logged with a reason. One script, one dependency.
 
 ```
-pip install pymupdf
-python split_library.py /path/to/library --dry-run    # examine, write nothing
-python split_library.py /path/to/library              # split; resumable
+python3 -m pip install pymupdf
+python3 split_library.py /path/to/library --dry-run    # examine, write nothing
+python3 split_library.py /path/to/library              # split; resumable
 ```
 
 With no second argument, output goes to a new folder next to the input,
