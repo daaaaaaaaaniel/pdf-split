@@ -34,8 +34,14 @@ OUTPUT_DIR = "../{name}-split"
 FRONTMATTER = "[frontmatter]"
 
 
+def tidy(title):
+    """Bookmark text as displayed: runs of whitespace (including embedded line breaks) collapsed."""
+    return re.sub(r"\s+", " ", title or "").strip()
+
+
 def clean_title(title):
-    t = unicodedata.normalize("NFC", title or "")
+    """Bookmark text as a filename component."""
+    t = unicodedata.normalize("NFC", tidy(title))
     t = re.sub(r'[\\/:*?"<>|\x00-\x1f\x7f]', "-", t)
     t = re.sub(r"\s+", " ", t).strip().rstrip(".").strip()
     return t or "untitled"
@@ -80,25 +86,27 @@ def chapters_from_outline(toc, page_count, level=None):
     return level, chapters, merged
 
 
+def has_later_sibling(nodes, i, depth):
+    """Does node i have a later sibling at `depth` before the tree pops above it?"""
+    for later_lvl, _, _ in nodes[i + 1:]:
+        if later_lvl < depth:
+            return False
+        if later_lvl == depth:
+            return True
+    return False
+
+
 def outline_tree(book, doc, toc, frontmatter):
     """_<book>.txt: the whole outline as a tree, each entry followed by ' · ' and the page
     label (or position) of the page it points at, exactly as the source's viewer shows it."""
     def label(page):
         return doc[page - 1].get_label() or str(page)
     nodes = ([(1, FRONTMATTER, label(1))] if frontmatter else []) + \
-            [(lvl, re.sub(r"\s+", " ", t).strip(), label(p) if 1 <= p <= doc.page_count else "")
-             for lvl, t, p in toc]
+            [(lvl, tidy(t), label(p) if 1 <= p <= doc.page_count else "") for lvl, t, p in toc]
     lines = [book]
     for i, (lvl, title, lab) in enumerate(nodes):
-        def has_later_sibling(depth):
-            for later_lvl, _, _ in nodes[i + 1:]:
-                if later_lvl < depth:
-                    return False
-                if later_lvl == depth:
-                    return True
-            return False
-        rails = "".join("│   " if has_later_sibling(d) else "    " for d in range(1, lvl))
-        branch = "├── " if has_later_sibling(lvl) else "└── "
+        rails = "".join("│   " if has_later_sibling(nodes, i, d) else "    " for d in range(1, lvl))
+        branch = "├── " if has_later_sibling(nodes, i, lvl) else "└── "
         lines.append(f"{rails}{branch}{title}{' · ' + lab if lab else ''}")
     return "\n".join(lines) + "\n"
 
@@ -122,6 +130,46 @@ def page_labels(doc, start, end):
         return [{"startpage": i, "prefix": doc[start - 1 + i].get_label(), "style": ""}
                 for i in range(end - start + 1)]
     return [{"startpage": 0, "style": "D", "firstpagenum": start}]
+
+
+def write_book(doc, book, toc, level, sections, names, dst):
+    """Write every section of one book into <dst>/.tmp-<book>/, verify the page counts,
+    then rename it to <dst>/<book>/. On any failure the temp folder is removed and the
+    exception propagates. Returns the titles of sections whose nested bookmarks could
+    not be written."""
+    meta = doc.metadata or {}
+    tmp, final = dst / f".tmp-{book}", dst / book
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True)
+    dropped, written = [], 0
+    try:
+        for (title, start, end), name in zip(sections, names):
+            out = pymupdf.open()
+            out.insert_pdf(doc, from_page=start - 1, to_page=end - 1)
+            if title != FRONTMATTER:
+                nested = [[lvl - level, tidy(t), p - start + 1]
+                          for lvl, t, p in toc if lvl > level and start <= p <= end]
+                try:
+                    out.set_toc(nested)
+                except Exception:  # noqa: BLE001  (a nested entry has no parent in this file)
+                    dropped.append(title)
+            out.set_page_labels(page_labels(doc, start, end))
+            # the chapter file carries the source's metadata unchanged (title, author, ...);
+            # only its creation date is its own
+            out.set_metadata({**meta, "creationDate": pymupdf.get_pdf_now()})
+            out.save(tmp / name, garbage=1)
+            written += out.page_count
+            out.close()
+        (tmp / f"_{book}.txt").write_text(outline_tree(book, doc, toc, sections[0][0] == FRONTMATTER),
+                                          encoding="utf-8")
+        if written != doc.page_count:
+            raise RuntimeError(f"page count mismatch: wrote {written}, source has {doc.page_count}")
+        shutil.rmtree(final, ignore_errors=True)
+        tmp.rename(final)
+    except Exception:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise
+    return dropped
 
 
 def process(job):
@@ -159,7 +207,7 @@ def process(job):
         toc = doc.get_toc(simple=True)
         valid = [(lvl, p) for lvl, _, p in toc if 1 <= p <= doc.page_count]
         rec.update(outline_entries=len(toc), outline_depth=max((lvl for lvl, _ in valid), default=None),
-                   outline=[{"level": lvl, "title": re.sub(r"\s+", " ", t).strip(), "page": p} for lvl, t, p in toc])
+                   outline=[{"level": lvl, "title": tidy(t), "page": p} for lvl, t, p in toc])
         if not valid:
             return done("skipped", "no_outline")
         if len(valid) == 1:
@@ -184,35 +232,9 @@ def process(job):
             sections.insert(0, (FRONTMATTER, 1, starts[0] - 1))
         names = filenames(book, [clean_title(t) for t, _, _ in sections])
 
-        tmp, final = dst / f".tmp-{book}", dst / book
-        shutil.rmtree(tmp, ignore_errors=True)
-        tmp.mkdir(parents=True)
         try:
-            written = 0
-            for (title, start, end), name in zip(sections, names):
-                out = pymupdf.open()
-                out.insert_pdf(doc, from_page=start - 1, to_page=end - 1)
-                if title != FRONTMATTER:
-                    nested = [[lvl - level, re.sub(r"\s+", " ", t).strip(), p - start + 1]
-                              for lvl, t, p in toc if lvl > level and start <= p <= end]
-                    try:
-                        out.set_toc(nested)
-                    except Exception:  # noqa: BLE001  (a nested entry has no parent in this file)
-                        rec["bookmarks_dropped"].append(title)
-                out.set_page_labels(page_labels(doc, start, end))
-                # the chapter file carries the source's metadata unchanged (title, author, ...);
-                # only its creation date is its own
-                out.set_metadata({**meta, "creationDate": pymupdf.get_pdf_now()})
-                out.save(tmp / name, garbage=1)
-                written += out.page_count
-                out.close()
-            (tmp / f"_{book}.txt").write_text(outline_tree(book, doc, toc, starts[0] > 1), encoding="utf-8")
-            if written != doc.page_count:
-                raise RuntimeError(f"page count mismatch: wrote {written}, source has {doc.page_count}")
-            shutil.rmtree(final, ignore_errors=True)
-            tmp.rename(final)
+            rec["bookmarks_dropped"] = write_book(doc, book, toc, level, sections, names, dst)
         except Exception as e:  # noqa: BLE001
-            shutil.rmtree(tmp, ignore_errors=True)
             return done("error", f"{type(e).__name__}: {e}")
         return done("split")
 
