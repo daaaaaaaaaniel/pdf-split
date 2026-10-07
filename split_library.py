@@ -143,6 +143,35 @@ def build_sections(chapters: list[tuple[str, int]], page_count: int):
     return sections
 
 
+def section_page_labels(source_rules: list[dict], start: int, end: int) -> list[dict]:
+    """Page-label rules for a chapter file covering source pages start..end (1-based),
+    so every page shows exactly the number it showed in the source. If the source
+    defines no labels, the viewer showed positions, so positions are reproduced."""
+    s0, e0 = start - 1, end - 1  # 0-based
+    if not source_rules:
+        return [{"startpage": 0, "prefix": "", "style": "D", "firstpagenum": start}]
+    rules = sorted(source_rules, key=lambda r: r["startpage"])
+    out = []
+    for i, r in enumerate(rules):
+        r_start = r["startpage"]
+        r_end = rules[i + 1]["startpage"] - 1 if i + 1 < len(rules) else e0
+        lo, hi = max(r_start, s0), min(r_end, e0)
+        if lo > hi:
+            continue
+        out.append({
+            "startpage": lo - s0,
+            "prefix": r.get("prefix", "") or "",
+            "style": r.get("style", "") or "",
+            "firstpagenum": (r.get("firstpagenum") or 1) + (lo - r_start),
+        })
+    if not out or out[0]["startpage"] != 0:
+        # pages before the source's first rule have no label; keep them as positions
+        out.insert(0, {"startpage": 0, "prefix": "", "style": "D", "firstpagenum": start})
+        if len(out) > 1 and out[1]["startpage"] == 0:
+            out.pop(0)
+    return out
+
+
 def nested_bookmarks(toc: list[list], split_level: int, start: int, end: int):
     """Bookmarks below the split level inside [start, end], re-based for the chapter file.
     Returns a list suitable for Document.set_toc(), or [] if the hierarchy is irregular."""
@@ -177,6 +206,7 @@ def process_file(args: tuple) -> dict:
         "pages": None,
         "outline_entries": None,
         "outline_depth": None,
+        "has_page_labels": None,
         "split_level": None,
         "chapters": None,
         "repaired": None,
@@ -236,6 +266,11 @@ def process_file(args: tuple) -> dict:
             return done("skipped", f"suspect_outline: {why}")
 
         sections = build_sections(chapters, doc.page_count)
+        try:
+            source_labels = doc.get_page_labels()
+        except Exception:  # noqa: BLE001
+            source_labels = []
+        rec["has_page_labels"] = bool(source_labels)
         names = dedupe_names([chapter_filename(book, clean_title(t)) for t, _, _ in sections])
 
         if dry_run:
@@ -259,8 +294,8 @@ def process_file(args: tuple) -> dict:
                             out.set_toc(bm)
                         except Exception:  # noqa: BLE001
                             pass
-                # keep the source's page numbering: page 294 of the book is still "294" here
-                out.set_page_labels([{"startpage": 0, "prefix": "", "style": "D", "firstpagenum": start}])
+                # no renumbering: each page shows the number the viewer showed in the source
+                out.set_page_labels(section_page_labels(source_labels, start, end))
                 out.set_metadata({**{k: v for k, v in meta.items() if v}, "title": clean_title(title)})
                 out.save(tmp_dir / name, garbage=1)
                 written_pages += out.page_count

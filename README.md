@@ -75,11 +75,12 @@ Options:
    An interrupted run never leaves a half-written book.
 
 Chapter files keep the bookmarks nested under their chapter (re-based to the
-new file) and get the chapter title as their PDF metadata title. Their pages
-are labelled with their position in the source, so a chapter cut from pages
-294–305 opens showing "294" and "go to page 300" still lands on the same page
-as in the original. Printed page numbers on the pages are ignored; this is
-the PDF's own numbering, not the book's. Pages before
+new file) and get the chapter title as their PDF metadata title. Pages are
+never renumbered: each page in a chapter file shows the same number the viewer
+showed for it in the source. For a source without page labels (most files)
+that is its position, so a chapter cut from pages 294–305 opens showing
+"294". For a source with its own labels (roman front matter, say) those labels
+are carried over unchanged. Printed page numbers on the pages play no part. Pages before
 the first chapter become `<book> - [frontmatter].pdf`.
 
 ## Naming
@@ -125,6 +126,7 @@ Each line of `results.jsonl`:
 | `pages` | page count (null if the file never opened) |
 | `outline_entries` | raw bookmark count |
 | `outline_depth` | deepest outline level that points at a real page (1 = flat). Greater than `split_level` means the book had sub-chapter bookmarks, which are carried into the chapter files |
+| `has_page_labels` | whether the source defines its own page labels (recorded for files that reached the split stage) |
 | `split_level` | outline level used as chapters |
 | `chapters` | number of chapters found at that level |
 | `repaired` | whether MuPDF repaired the file's index on open |

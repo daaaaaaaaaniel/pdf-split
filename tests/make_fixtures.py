@@ -73,6 +73,18 @@ def main(out: Path):
         [1, "Repeat", 5], [1, "Repeat", 9], [1, "repeat", 12],
         [1, long_title, 15], [1, "Ends with dots...", 18]])
 
+    # 10b. source with its own page labels (roman, arabic restarting, prefixed appendix)
+    #      -> chapter files must show exactly the same labels
+    doc = pymupdf.open()
+    for i in range(30):
+        doc.new_page().insert_text((72, 72), f"pos {i + 1}", fontsize=14)
+    doc.set_toc([[1, "Preface", 3], [1, "Chapter 1", 9], [1, "Chapter 2", 18], [1, "Appendix", 25]])
+    doc.set_page_labels([{"startpage": 0, "style": "r"},
+                         {"startpage": 8, "style": "D", "firstpagenum": 1},
+                         {"startpage": 24, "prefix": "A-", "style": "D", "firstpagenum": 1}])
+    doc.save(out / "labelled book.pdf")
+    doc.close()
+
     # 11. corrupt file (truncated)
     good = out / "plain book.pdf"
     data = good.read_bytes()
