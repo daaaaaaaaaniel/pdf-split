@@ -4,7 +4,7 @@ embedded outline (bookmarks). Files without a usable outline are left alone and
 logged with a reason. Requires PyMuPDF (pip install pymupdf).
 
     python split_library.py SRC [DST] [--dry-run] [--limit N] [--workers N]
-                                      [--retry] [--include-repaired]
+                                      [--level N] [--retry] [--include-repaired]
 """
 import argparse
 import json
@@ -54,17 +54,53 @@ def filenames(book, titles):
     return out
 
 
-def chapters_from_outline(toc, page_count):
-    """Pick the chapter level: the shallowest outline level with 2+ distinct start
-    pages (this skips a single root bookmark). Returns (level, [(page, title)...])."""
+def chapters_from_outline(toc, page_count, level=None):
+    """Decide which bookmarks are chapters. Returns (level, chapters, merged) where
+    chapters = [(page, title), ...] sorted by page, and merged lists the title groups
+    that shared a start page (their titles are joined with ' - ').
+
+    level=None: the shallowest outline level with 2+ distinct start pages is the chapter
+    level (this skips a single root bookmark); only entries at that level are chapters.
+    level=N (--level): every entry at level 1..N is a chapter. Returns chapters=None if
+    the outline has no entries at level N."""
     valid = [(lvl, title, page) for lvl, title, page in toc if 1 <= page <= page_count]
     levels = sorted({lvl for lvl, _, _ in valid})
-    level = next((l for l in levels if len({p for lv, _, p in valid if lv == l}) >= 2), levels[0])
+    if level is None:
+        level = next((l for l in levels if len({p for lv, _, p in valid if lv == l}) >= 2), levels[0])
+        picked = [(p, t) for lv, t, p in valid if lv == level]
+    elif level in levels:
+        picked = [(p, t) for lv, t, p in valid if lv <= level]
+    else:
+        return level, None, []
     by_page = {}
-    for lvl, title, page in valid:
-        if lvl == level:
-            by_page.setdefault(page, title)
-    return level, sorted(by_page.items())
+    for page, title in picked:
+        by_page.setdefault(page, []).append(title)
+    chapters = [(page, " - ".join(titles)) for page, titles in sorted(by_page.items())]
+    merged = [titles for _, titles in sorted(by_page.items()) if len(titles) > 1]
+    return level, chapters, merged
+
+
+def outline_tree(book, doc, toc, frontmatter):
+    """<book>.txt: the whole outline as a tree, each entry followed by ' · ' and the page
+    label (or position) of the page it points at, exactly as the source's viewer shows it."""
+    def label(page):
+        return doc[page - 1].get_label() or str(page)
+    nodes = ([(1, FRONTMATTER, label(1))] if frontmatter else []) + \
+            [(lvl, re.sub(r"\s+", " ", t).strip(), label(p) if 1 <= p <= doc.page_count else "")
+             for lvl, t, p in toc]
+    lines = [book]
+    for i, (lvl, title, lab) in enumerate(nodes):
+        def has_later_sibling(depth):
+            for later_lvl, _, _ in nodes[i + 1:]:
+                if later_lvl < depth:
+                    return False
+                if later_lvl == depth:
+                    return True
+            return False
+        rails = "".join("│   " if has_later_sibling(d) else "    " for d in range(1, lvl))
+        branch = "├── " if has_later_sibling(lvl) else "└── "
+        lines.append(f"{rails}{branch}{title}{' · ' + lab if lab else ''}")
+    return "\n".join(lines) + "\n"
 
 
 def suspect(chapters, page_count):
@@ -90,14 +126,14 @@ def page_labels(doc, start, end):
 
 def process(job):
     """Examine one PDF and, unless dry_run, split it. Returns the log record."""
-    src, dst, dry_run, include_repaired = job
+    src, dst, dry_run, include_repaired, level = job
     src, dst = Path(src), Path(dst)
     book = src.stem
     rec = {"book": book, "source": str(src), "outcome": None, "reason": None,
            "pages": None, "outline_entries": None, "outline_depth": None,
            "has_page_labels": None, "split_level": None, "chapters": None,
            "repaired": None, "producer": None, "creator": None, "outline": None,
-           "bookmarks_dropped": [],
+           "level_forced": level is not None, "merged_titles": [], "bookmarks_dropped": [],
            "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds")}
 
     def done(outcome, reason=None):
@@ -129,8 +165,11 @@ def process(job):
         if len(valid) == 1:
             return done("skipped", "single_entry_outline")
 
-        level, chapters = chapters_from_outline(toc, doc.page_count)
-        rec.update(split_level=level, chapters=len(chapters), has_page_labels=bool(doc.get_page_labels()))
+        level, chapters, merged = chapters_from_outline(toc, doc.page_count, level)
+        rec.update(split_level=level, has_page_labels=bool(doc.get_page_labels()), merged_titles=merged)
+        if chapters is None:
+            return done("skipped", "level_not_present")
+        rec.update(chapters=len(chapters))
         why = suspect(chapters, doc.page_count)
         if why:
             return done("skipped", f"suspect_outline: {why}")
@@ -167,6 +206,7 @@ def process(job):
                 out.save(tmp / name, garbage=1)
                 written += out.page_count
                 out.close()
+            (tmp / f"{book}.txt").write_text(outline_tree(book, doc, toc, starts[0] > 1), encoding="utf-8")
             if written != doc.page_count:
                 raise RuntimeError(f"page count mismatch: wrote {written}, source has {doc.page_count}")
             shutil.rmtree(final, ignore_errors=True)
@@ -185,6 +225,9 @@ def main():
     ap.add_argument("--limit", type=int, metavar="N", help="process a random sample of N files")
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1), help="parallel processes")
     ap.add_argument("--retry", action="store_true", help="re-examine files already in the log")
+    ap.add_argument("--level", type=int, metavar="N",
+                    help="split at outline level N (every bookmark at level 1..N starts a file) "
+                         "instead of choosing the level automatically")
     ap.add_argument("--include-repaired", action="store_true",
                     help="also split files whose index MuPDF had to repair (default: skip them for a later pass)")
     a = ap.parse_args()
@@ -208,7 +251,7 @@ def main():
         todo = sorted(random.sample(todo, a.limit))
     print(f"{len(todo)} files to examine{' (dry run)' if a.dry_run else ''}; output in {dst}", file=sys.stderr)
 
-    jobs = [(str(p), str(dst), a.dry_run, a.include_repaired) for p in todo]
+    jobs = [(str(p), str(dst), a.dry_run, a.include_repaired, a.level) for p in todo]
     counts = Counter()
     with log.open("a", encoding="utf-8") as f, multiprocessing.Pool(a.workers, maxtasksperchild=50) as pool:
         for i, rec in enumerate(pool.imap_unordered(process, jobs), 1):

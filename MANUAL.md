@@ -65,7 +65,7 @@ the script (section 12).
 
 ```
 python split_library.py SRC [DST] [--dry-run] [--limit N] [--workers N]
-                                  [--retry] [--include-repaired]
+                                  [--level N] [--retry] [--include-repaired]
 ```
 
 | Argument | Meaning |
@@ -75,6 +75,7 @@ python split_library.py SRC [DST] [--dry-run] [--limit N] [--workers N]
 | `--dry-run` | Run the whole decision tree but write no PDFs. Outcomes go to `_log/dry-run.jsonl` instead of `results.jsonl`, so a dry run never affects a real run's resume logic. |
 | `--limit N` | Examine a random sample of N files from the work list. |
 | `--workers N` | Parallel worker processes. Default: CPU count minus one. Each worker is recycled after 50 files. |
+| `--level N` | Split at outline level N instead of choosing the level automatically: every bookmark at level 1 through N starts a file (section 6). A book with no bookmarks at level N is skipped as `level_not_present`. |
 | `--retry` | Re-examine files already in the log. Books that have an output folder are still left alone. |
 | `--include-repaired` | Also split files whose index MuPDF had to repair on open. By default these are logged `repaired_on_open` and left for a later pass. |
 
@@ -96,6 +97,7 @@ always means: source untouched, nothing written, one line in the log.
 5. **Is there exactly one such bookmark?** Yes → `skipped: single_entry_outline`.
    A lone bookmark is a title, not a table of contents.
 6. **Choose the chapter level** (section 6) and the chapters at that level.
+   With `--level N` and no bookmarks at level N → `skipped: level_not_present`.
 7. **Sanity checks on the chapters.** Any failure → `skipped: suspect_outline: <check>`:
    - `single_chapter`: fewer than 2 chapters.
    - `too_many_chapters`: more chapters than half the page count (a bookmark
@@ -129,14 +131,29 @@ the chapters nested inside each part file. That is by design.
 
 | Bookmark | Becomes |
 |---|---|
-| Points outside the document, or nowhere (page −1) | Ignored. Still listed in the log's `outline`. |
+| Points outside the document, or nowhere (page −1) | Ignored. Still listed in the log's `outline` and in `<book>.txt`. |
 | Shallower than the chapter level | Dropped: it is a wrapper above the chapters and would point outside every chapter file. |
 | Deeper than the chapter level | A nested bookmark inside the chapter file whose pages contain it. |
-| At the chapter level, but another chapter already starts on the same page | Merged: the first bookmark on that page keeps the title. |
-| At the chapter level, first on its page | A chapter. Starts a new file at that page. |
+| At the chapter level | A chapter. Starts a new file at that page. |
+
+**Same-page collisions.** When two or more chapter bookmarks point at the same
+page, they become one file whose title is their titles joined with ` - `, in
+document order: a part heading that sits on the same page as its first chapter
+gives `PART I Questions - 1. Technics- An Introduction.pdf`. Nothing is
+discarded. Every such group is recorded in the log's `merged_titles`.
 
 The result is a page-ordered list of chapters. Pages before the first chapter
 become a `[frontmatter]` section.
+
+**With `--level N`.** The automatic choice is replaced by: every bookmark at
+level 1 through N is a chapter. A part at level 1 whose first chapter at
+level 2 starts on a later page gets a file of its own, covering the pages up
+to that chapter (typically a title page); a part that starts on the same page
+as its first chapter is merged with it as above. Bookmarks deeper than N are
+nested inside files as usual. If the outline has nothing at level N, the book
+is skipped as `level_not_present` rather than falling back to the automatic
+choice. Note that `--level 1` is not the same as the default: the default
+skips a single root bookmark, `--level 1` takes it literally.
 
 ## 7. What a chapter file contains
 
@@ -165,6 +182,23 @@ become a `[frontmatter]` section.
 - **Folder**: `<DST>/<book>/`. Written first as `<DST>/.tmp-<book>/` and
   renamed only when complete, so an interrupted run never leaves a
   half-written book that looks finished.
+- **`<book>.txt`**: a plain-text tree of the source's entire outline, every
+  level, in document order, with `[frontmatter]` first when it exists. Each
+  entry is followed by ` · ` and the page label (or position, for a source
+  without labels) of the page it points at, as the source's viewer shows it.
+  Titles are verbatim apart from collapsed whitespace, so this file is where
+  the exact titles survive the filename cleanup. A bookmark with no
+  destination appears without a number.
+
+  ```
+  Stiegler_1998_-_Technics_and_Time_1
+  ├── [frontmatter] · 1
+  ├── Preface · 6
+  ├── Part I: The Invention of the Human · 34
+  │   ├── Introduction · 36
+  │   └── 1: Theories of Technical Evolution · 44
+  └── Notes · 294
+  ```
 
 ## 8. The log
 
@@ -179,7 +213,7 @@ It is both the record of what happened and the script's memory for resuming.
 | `book` | string | Source filename without `.pdf`. Also the output folder name. |
 | `source` | string | Absolute path of the source PDF. |
 | `outcome` | string | `split`, `would_split` (dry run only), `skipped`, or `error`. |
-| `reason` | string or null | Why, for `skipped` and `error`. Null for `split`. Values: `unreadable: <exception>`, `encrypted`, `repaired_on_open`, `no_outline`, `single_entry_outline`, `suspect_outline: single_chapter`, `suspect_outline: too_many_chapters`, `suspect_outline: one_chapter_dominates`, `page count mismatch: …`, or the text of any other exception during writing. |
+| `reason` | string or null | Why, for `skipped` and `error`. Null for `split`. Values: `unreadable: <exception>`, `encrypted`, `repaired_on_open`, `no_outline`, `single_entry_outline`, `suspect_outline: single_chapter`, `suspect_outline: too_many_chapters`, `suspect_outline: one_chapter_dominates`, `level_not_present`, `page count mismatch: …`, or the text of any other exception during writing. |
 | `pages` | int or null | Page count. Null if the file never opened. |
 | `outline_entries` | int or null | Total bookmarks, including ones with no destination. |
 | `outline_depth` | int or null | Deepest level among bookmarks that point at a real page. 1 means a flat outline. Greater than `split_level` means the book had sub-chapter bookmarks. |
@@ -189,6 +223,8 @@ It is both the record of what happened and the script's memory for resuming.
 | `chapters` | int or null | Number of chapters found at that level. |
 | `repaired` | bool or null | Whether MuPDF had to rebuild the file's index on open. |
 | `producer`, `creator` | string or null | PDF metadata naming the software that made the file. Problem files cluster by producer. |
+| `level_forced` | bool | Whether `--level` was given for this run. |
+| `merged_titles` | list of lists | Each group of chapter bookmarks that shared a start page and were joined into one file (section 6). Normally `[]`. |
 | `bookmarks_dropped` | list | Titles of chapter files written without nested bookmarks (section 7). Normally `[]`. |
 | `timestamp` | string | When the file was examined, UTC, ISO 8601. |
 
@@ -235,6 +271,12 @@ Everything the script saw in one book's outline, as an indented list:
 
 ```
 jq -r 'select(.book == "Stiegler 2009 - Technics and Time, 2-1") | .outline[] | "\("  " * (.level - 1))\(.title)  p.\(.page)"' results.jsonl
+```
+
+Books where chapter bookmarks shared a page and their titles were joined:
+
+```
+jq -r 'select(.merged_titles | length > 0) | .book as $b | .merged_titles[] | [$b, join(" + ")] | @tsv' results.jsonl
 ```
 
 Chapter files written without their bookmarks:
@@ -301,6 +343,7 @@ bookmarks were lost lands in `no_outline` in pass 2, like any other.
 | `skipped: suspect_outline: single_chapter` | Several bookmarks, all on the same page. | Look at `outline` in the log. Usually an outline that was never finished. |
 | `skipped: suspect_outline: too_many_chapters` | Bookmark per page, per figure, per paragraph. | Look at `outline`. If the entries are real chapters in a very short book, raise `MAX_CHAPTERS_PER_PAGE` and `--retry`. |
 | `skipped: suspect_outline: one_chapter_dominates` | One bookmark covers nearly the whole book; the rest are cover, title page, index. | Look at `outline`. If the big one is "Text" or "Body", the outline describes the binding, not the contents. |
+| `skipped: level_not_present` | `--level N` was given and this outline has nothing at level N. | Expected for flat outlines. Run those books without `--level`. |
 | `error: page count mismatch` | A bug. Should never happen. | Report it, with the log line. |
 | `error: <anything else>` | Writing failed: disk full, a filename the filesystem rejected, a page MuPDF could not copy. | Read the exception. Fix the cause and `--retry`. |
 | `split` with `bookmarks_dropped` non-empty | Those chapter files have no bookmarks. | Cosmetic. Open the source's outline (in the log) if you want to see why. |
@@ -327,9 +370,10 @@ change before anything is written.
   Ctrl-C and look for the `.tmp-*` folder to identify the file.
 - **The outline is trusted.** Bookmarks pointing at wrong pages produce a
   faithful split of the wrong pages. Nothing in the script can notice.
-- **Parts split as parts.** A collection whose top level is Part I / Part II
-  gives two large files with chapters as bookmarks inside. If chapter files
-  are wanted, that needs a `--level` override, which does not exist yet.
+- **Parts split as parts by default.** A collection whose top level is
+  Part I / Part II gives one file per part with chapters as bookmarks inside.
+  `--level 2` gives chapter files instead; it applies to the whole run, so use
+  it on a folder of such books or on a targeted `--retry`.
 - **No OCR, no printed-TOC parsing.** Files without bookmarks are only logged.
 - **Nested-bookmark edge case**: see `bookmarks_dropped`.
 - **Filesystem limits**: filenames are kept under 255 bytes and free of the
@@ -342,20 +386,22 @@ change before anything is written.
 per case the script must handle: a plain outline, nested bookmarks, a root
 wrapper bookmark, no outline, a single bookmark, scanned pages with an outline,
 encryption, the three suspect cases, titles with forbidden characters and
-duplicates, a source with its own page labels, a stray sub-bookmark, a
-truncated file, a non-PDF, an uppercase extension, and files that must be
-ignored. Run the script on it:
+duplicates, a source with its own page labels, a stray sub-bookmark, a book
+with parts (for `--level`), a truncated file, a non-PDF, an uppercase
+extension, and files that must be ignored. Run the script on it:
 
 ```
 python tests/make_fixtures.py /tmp/lib
 python split_library.py /tmp/lib /tmp/lib-split
 ```
 
-Expected: 8 split, the rest skipped with the reason named in the fixture
-file's comments, `labelled book` showing the labels i–ii / iii–viii / 1–9 /
+Expected: 9 split, the rest skipped with the reason named in the fixture
+file's comments, every split folder containing a `<book>.txt` tree, `labelled book` showing the labels i–ii / iii–viii / 1–9 /
 10–16 / A-1–A-6 across its five files, and `stray bookmark` logged with
-`bookmarks_dropped: ["Chapter 2"]`. Every split book's chapter page counts add
-up to its source's.
+`bookmarks_dropped: ["Chapter 2"]`. With `--level 2`, `parts book` gives
+`Part I`, `Ch 1`, `Ch 2`, `Part II - Ch 3`, `Ch 4` and `[frontmatter]`, and
+the flat books are skipped as `level_not_present`. Every split book's chapter
+page counts add up to its source's.
 
 ## 15. Glossary
 

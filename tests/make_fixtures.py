@@ -92,6 +92,13 @@ def main(out: Path):
         [1, "Chapter 1", 1], [2, "1.1", 3], [3, "1.1.1 points into chapter 2", 12],
         [1, "Chapter 2", 10], [2, "2.1 Fine", 14]])
 
+    # 10d. parts with chapters inside. Automatic: split by part (2 chapters).
+    #      --level 2: Part I gets its own 2-page file (p3-4), then Ch 1, Ch 2;
+    #      Part II shares a page with Ch 3, so that file is "Part II - Ch 3"; then Ch 4.
+    make(out / "parts book.pdf", 24, [
+        [1, "Part I", 3], [2, "Ch 1", 5], [3, "1.1", 7], [2, "Ch 2", 10],
+        [1, "Part II", 15], [2, "Ch 3", 15], [2, "Ch 4", 20]])
+
     # 11. corrupt file (truncated)
     good = out / "plain book.pdf"
     data = good.read_bytes()
