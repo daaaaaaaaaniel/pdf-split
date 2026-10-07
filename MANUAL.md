@@ -49,8 +49,14 @@ python split_library.py /path/to/library --limit 20
 python split_library.py /path/to/library
 ```
 
-Output goes to a sibling folder `library-split/` unless you give a second
-path.
+Where the output goes: with no second argument, the script creates a new
+folder next to the library, named after it with `-split` added. So for
+`/Volumes/X/my-library` it writes to `/Volumes/X/my-library-split`. To put
+the output anywhere else, give that path as the second argument:
+
+```
+python split_library.py /Volumes/X/my-library /Volumes/Y/splits
+```
 
 ## 4. Command reference
 
@@ -62,7 +68,7 @@ python split_library.py SRC [DST] [--dry-run] [--limit N] [--workers N]
 | Argument | Meaning |
 |---|---|
 | `SRC` | Flat directory of PDFs. Only top-level `*.pdf` files are considered (case-insensitive). Subfolders, hidden files and macOS `._` files are ignored and never logged. |
-| `DST` | Output directory. Default: `<SRC>-split` next to `SRC`. Must not be inside `SRC`. |
+| `DST` | Output directory, created if needed. If omitted, a folder next to `SRC` named `<SRC's name>-split`. Must not be `SRC` or inside it. |
 | `--dry-run` | Run the whole decision tree but write no PDFs. Outcomes go to `_log/dry-run.jsonl` instead of `results.jsonl`, so a dry run never affects a real run's resume logic. |
 | `--limit N` | Examine a random sample of N files from the work list. |
 | `--workers N` | Parallel worker processes. Default: CPU count minus one. Each worker is recycled after 50 files. |

@@ -10,7 +10,8 @@ python split_library.py /path/to/library --dry-run    # examine, write nothing
 python split_library.py /path/to/library              # split; resumable
 ```
 
-Output goes to `library-split/` next to the input, as
+With no second argument, output goes to a new folder next to the input,
+named after it: `/path/to/library` → `/path/to/library-split`. Inside:
 
 ```
 library-split/
