@@ -45,9 +45,14 @@ python split_library.py /path/to/library --dry-run
 # 2. Split a random sample for real and open the results.
 python split_library.py /path/to/library --limit 20
 
-# 3. Split everything. Interrupt and rerun as often as you like; it resumes.
+# 3. Split everything.
 python split_library.py /path/to/library
 ```
+
+The full run can be interrupted at any point (Ctrl-C, or the machine going
+to sleep) and continued later by running the same command again: the script
+skips every file it has already dealt with and carries on with the rest.
+Nothing needs to be passed or cleaned up by hand. Section 10 has the details.
 
 Where the output goes: with no second argument, the script creates a new
 folder next to the library, named after it with `-split` added. So for

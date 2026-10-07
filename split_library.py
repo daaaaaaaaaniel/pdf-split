@@ -275,13 +275,16 @@ def main():
 
     jobs = [(str(p), str(dst), a.dry_run, a.include_repaired, a.level) for p in todo]
     counts = Counter()
-    with log.open("a", encoding="utf-8") as f, multiprocessing.Pool(a.workers, maxtasksperchild=50) as pool:
-        for i, rec in enumerate(pool.imap_unordered(process, jobs), 1):
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-            f.flush()
-            counts[rec["reason"].split(":")[0] if rec["reason"] else rec["outcome"]] += 1
-            detail = f"{rec['chapters']} chapters" if rec["outcome"] in ("split", "would_split") else rec["reason"]
-            print(f"[{i}/{len(jobs)}] {rec['outcome']:<12}{rec['book']}  ({detail})", file=sys.stderr)
+    try:
+        with log.open("a", encoding="utf-8") as f, multiprocessing.Pool(a.workers, maxtasksperchild=50) as pool:
+            for i, rec in enumerate(pool.imap_unordered(process, jobs), 1):
+                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                f.flush()
+                counts[rec["reason"].split(":")[0] if rec["reason"] else rec["outcome"]] += 1
+                detail = f"{rec['chapters']} chapters" if rec["outcome"] in ("split", "would_split") else rec["reason"]
+                print(f"[{i}/{len(jobs)}] {rec['outcome']:<12}{rec['book']}  ({detail})", file=sys.stderr)
+    except KeyboardInterrupt:
+        print("\ninterrupted; everything finished so far is logged. Rerun the same command to resume.", file=sys.stderr)
     for k, n in counts.most_common():
         print(f"{n:>6}  {k}", file=sys.stderr)
 
