@@ -81,7 +81,7 @@ def chapters_from_outline(toc, page_count, level=None):
 
 
 def outline_tree(book, doc, toc, frontmatter):
-    """<book>.txt: the whole outline as a tree, each entry followed by ' · ' and the page
+    """_<book>.txt: the whole outline as a tree, each entry followed by ' · ' and the page
     label (or position) of the page it points at, exactly as the source's viewer shows it."""
     def label(page):
         return doc[page - 1].get_label() or str(page)
@@ -206,7 +206,7 @@ def process(job):
                 out.save(tmp / name, garbage=1)
                 written += out.page_count
                 out.close()
-            (tmp / f"{book}.txt").write_text(outline_tree(book, doc, toc, starts[0] > 1), encoding="utf-8")
+            (tmp / f"_{book}.txt").write_text(outline_tree(book, doc, toc, starts[0] > 1), encoding="utf-8")
             if written != doc.page_count:
                 raise RuntimeError(f"page count mismatch: wrote {written}, source has {doc.page_count}")
             shutil.rmtree(final, ignore_errors=True)

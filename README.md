@@ -17,7 +17,7 @@ named after it: `/path/to/library` → `/path/to/library-split`. Inside:
 library-split/
   _log/results.jsonl                     one line per file examined
   example/
-    example.txt                          the source's outline as a tree, with page labels
+    _example.txt                         the source's outline as a tree, with page labels
     example - [frontmatter].pdf
     example - Introduction.pdf
     example - Chapter 1.pdf

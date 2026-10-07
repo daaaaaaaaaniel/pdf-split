@@ -131,7 +131,7 @@ the chapters nested inside each part file. That is by design.
 
 | Bookmark | Becomes |
 |---|---|
-| Points outside the document, or nowhere (page −1) | Ignored. Still listed in the log's `outline` and in `<book>.txt`. |
+| Points outside the document, or nowhere (page −1) | Ignored. Still listed in the log's `outline` and in `_<book>.txt`. |
 | Shallower than the chapter level | Dropped: it is a wrapper above the chapters and would point outside every chapter file. |
 | Deeper than the chapter level | A nested bookmark inside the chapter file whose pages contain it. |
 | At the chapter level | A chapter. Starts a new file at that page. |
@@ -182,7 +182,7 @@ skips a single root bookmark, `--level 1` takes it literally.
 - **Folder**: `<DST>/<book>/`. Written first as `<DST>/.tmp-<book>/` and
   renamed only when complete, so an interrupted run never leaves a
   half-written book that looks finished.
-- **`<book>.txt`**: a plain-text tree of the source's entire outline, every
+- **`_<book>.txt`**: a plain-text tree of the source's entire outline, every
   level, in document order, with `[frontmatter]` first when it exists. Each
   entry is followed by ` · ` and the page label (or position, for a source
   without labels) of the page it points at, as the source's viewer shows it.
@@ -396,7 +396,7 @@ python split_library.py /tmp/lib /tmp/lib-split
 ```
 
 Expected: 9 split, the rest skipped with the reason named in the fixture
-file's comments, every split folder containing a `<book>.txt` tree, `labelled book` showing the labels i–ii / iii–viii / 1–9 /
+file's comments, every split folder containing a `_<book>.txt` tree, `labelled book` showing the labels i–ii / iii–viii / 1–9 /
 10–16 / A-1–A-6 across its five files, and `stray bookmark` logged with
 `bookmarks_dropped: ["Chapter 2"]`. With `--level 2`, `parts book` gives
 `Part I`, `Ch 1`, `Ch 2`, `Part II - Ch 3`, `Ch 4` and `[frontmatter]`, and
