@@ -99,7 +99,9 @@ always means: source untouched, nothing written, one line in the log.
      per page or per figure).
    - `one_chapter_dominates`: one chapter covers more than 95% of the pages.
 8. **`--dry-run`?** Yes → `would_split`, nothing written.
-9. **Write** every chapter into `.tmp-<book>/` (section 7).
+9. **Write** every chapter into `.tmp-<book>/` (section 7). If anything
+   fails during writing (disk full, a filename the filesystem rejects, a page
+   MuPDF cannot copy) → `error: <exception>`, temp folder discarded.
 10. **Do the chapter page counts add up exactly to the source's?** No →
     `error: page count mismatch`, temp folder discarded. Yes → temp folder
     renamed to `<book>/`, outcome `split`.
