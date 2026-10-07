@@ -306,6 +306,26 @@ The current state of every book, when some were re-examined:
 jq -s 'group_by(.book) | map(last) | .[] | [.outcome, .book] | @tsv' -r results.jsonl
 ```
 
+### 8.3 Finding duplicate books
+
+`tools/duplicates.py` reads a log and groups files whose names match once
+trailing copy markers (`-1`, ` 2`, `(1)`, `copy`) are removed, printing each
+group with every member's outcome, page count, bookmark count and producer:
+
+```
+python3 tools/duplicates.py library-split/_log/dry-run.jsonl
+```
+
+```
+tomba 2012 - marx's temporalities
+    split          263p  bookmarks=14    Adobe PDF Library 15.0    Tomba 2012 - Marx's Temporalities-1
+    skipped        263p  bookmarks=0     ABBYY FineReader          Tomba 2012 - Marx's Temporalities-1 2
+```
+
+Which copy to keep is your call; usually the one with bookmarks. The tool is
+name-based only: two copies named differently are not found, and a title that
+happens to end in a number ("Volume 2") is grouped with its base name.
+
 ## 9. Running in passes
 
 ```
