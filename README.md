@@ -35,7 +35,6 @@ second path. The input directory is never modified.
 my-pdf-library-split/
   _log/
     results.jsonl        one line per source file examined
-    summary.txt          counts by outcome and reason, rewritten each run
     dry-run.jsonl        same, from --dry-run (kept separate)
   example/
     example - [frontmatter].pdf    pages before the first chapter, if any
@@ -48,16 +47,16 @@ Options:
 | Flag | Meaning |
 |---|---|
 | `--dry-run` | Examine and log every file; write no PDFs. Logs to `dry-run.jsonl`. |
-| `--limit N` | Random sample of N files (`--seed` for reproducibility). |
+| `--limit N` | Random sample of N files. |
 | `--workers N` | Parallel processes. Default: CPU count minus one. |
-| `--retry` | Re-examine files previously logged as `skipped` or `error`. |
+| `--retry` | Re-examine files already in the log. Books that have an output folder are still left alone. |
 | `--include-repaired` | Also split files whose index MuPDF had to repair on open. By default these are logged as `repaired_on_open` and left for a later pass. |
 
 ## How a file is judged
 
 1. Open it. PyMuPDF reads only the cross-reference table and catalog on open,
    not the pages, so this is cheap even for a 100 MB scan.
-2. Encrypted, unreadable or zero pages → skipped.
+2. Unreadable (including zero pages) or encrypted → skipped.
 3. Read the outline. No entries pointing at a valid page → `no_outline`.
    Exactly one entry → `single_entry_outline` (a lone bookmark is a title,
    not a table of contents; common in single-chapter PDFs).
@@ -103,15 +102,17 @@ python split_library.py LIB --retry --include-repaired
 # pass 3: no_outline and suspect_outline files remain in the log for a future tool
 ```
 
-`--retry` only re-examines files logged as skipped or error, so pass 2 never
-re-reads the files pass 1 already split.
+Books split in pass 1 have output folders, so pass 2 never reopens them.
 
 ## Resuming and redoing
 
-- A book whose output folder exists is skipped. Delete the folder to redo it.
-- Files already in `results.jsonl` are skipped unless `--retry` (for skipped
-  or errored files) is given.
+- A book whose output folder exists is done and is never touched again.
+  To redo one, delete its folder and run with `--retry`.
+- A file already in `results.jsonl` was examined and is not reopened unless
+  `--retry` is given.
 - Leftover `.tmp-*` folders from an interrupted run are removed at startup.
+- A count of outcomes is printed when the run ends. For anything more, query
+  the log.
 
 ## The log
 
@@ -122,16 +123,16 @@ Each line of `results.jsonl`:
 | `book` | source filename without `.pdf` |
 | `source` | absolute path |
 | `outcome` | `split`, `would_split` (dry run), `skipped`, `error` |
-| `reason` | for skipped/error: `no_outline`, `single_entry_outline`, `encrypted`, `unreadable: …`, `suspect_outline: <check>`, `no_pages`, `repaired_on_open`, or the exception |
+| `reason` | for skipped/error: `no_outline`, `single_entry_outline`, `encrypted`, `unreadable: …`, `suspect_outline: <check>`, `repaired_on_open`, or the exception |
 | `pages` | page count (null if the file never opened) |
 | `outline_entries` | raw bookmark count |
 | `outline_depth` | deepest outline level that points at a real page (1 = flat). Greater than `split_level` means the book had sub-chapter bookmarks, which are carried into the chapter files |
-| `has_page_labels` | whether the source defines its own page labels (recorded for files that reached the split stage) |
+| `has_page_labels` | whether the source defines its own page labels |
 | `split_level` | outline level used as chapters |
 | `chapters` | number of chapters found at that level |
 | `repaired` | whether MuPDF repaired the file's index on open |
 | `producer`, `creator` | PDF metadata; useful for spotting which tool or publisher produced the problem files |
-| `size_bytes`, `seconds`, `script_version`, `timestamp` | bookkeeping |
+| `timestamp` | when the file was examined (UTC) |
 
 To see what's in the skipped pile:
 
