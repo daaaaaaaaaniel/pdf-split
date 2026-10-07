@@ -51,7 +51,7 @@ Options:
 | `--limit N` | Random sample of N files (`--seed` for reproducibility). |
 | `--workers N` | Parallel processes. Default: CPU count minus one. |
 | `--retry` | Re-examine files previously logged as `skipped` or `error`. |
-| `--skip-repaired` | Treat files whose index MuPDF had to repair on open as skipped. By default they are processed and flagged `"repaired": true` in the log. |
+| `--include-repaired` | Also split files whose index MuPDF had to repair on open. By default these are logged as `repaired_on_open` and left for a later pass. |
 
 ## How a file is judged
 
@@ -83,6 +83,21 @@ the first chapter become `<book> - [frontmatter].pdf`.
 `-`, whitespace collapsed, trailing dots stripped, Unicode normalized to NFC,
 and are truncated so the filename fits in 255 bytes. Duplicate titles within a
 book get ` (2)`, ` (3)`, … in page order.
+
+## Running in passes
+
+```
+# pass 1: clean files with usable outlines
+python split_library.py LIB
+
+# pass 2: files MuPDF had to repair on open; split if the recovered outline passes the checks
+python split_library.py LIB --retry --include-repaired
+
+# pass 3: no_outline and suspect_outline files remain in the log for a future tool
+```
+
+`--retry` only re-examines files logged as skipped or error, so pass 2 never
+re-reads the files pass 1 already split.
 
 ## Resuming and redoing
 

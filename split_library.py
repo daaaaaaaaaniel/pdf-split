@@ -350,8 +350,9 @@ def main(argv=None):
                     help="parallel worker processes (default: CPU count - 1)")
     ap.add_argument("--retry", action="store_true",
                     help="re-examine files previously logged as skipped or error")
-    ap.add_argument("--skip-repaired", action="store_true",
-                    help="skip files whose index PyMuPDF had to repair on open")
+    ap.add_argument("--include-repaired", action="store_true",
+                    help="also split files whose index PyMuPDF had to repair on open "
+                         "(default: log them as skipped/repaired_on_open for a later pass)")
     ap.add_argument("--seed", type=int, default=None, help="random seed for --limit")
     a = ap.parse_args(argv)
 
@@ -395,7 +396,7 @@ def main(argv=None):
         print(write_summary(log_path, summary_path), file=sys.stderr)
         return 0
 
-    jobs = [(str(p), str(dst), a.dry_run, a.skip_repaired) for p in todo]
+    jobs = [(str(p), str(dst), a.dry_run, not a.include_repaired) for p in todo]
     counts: Counter = Counter()
     t0 = time.monotonic()
     width = len(str(len(jobs)))
