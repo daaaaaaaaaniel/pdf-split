@@ -26,6 +26,11 @@ MIN_CHAPTERS = 2
 MAX_CHAPTERS_PER_PAGE = 0.50   # more chapters than half the page count: suspect
 MAX_CHAPTER_SHARE = 0.95       # one chapter covering more than this: suspect
 
+# Where output goes when no DST is given on the command line. A relative path is
+# resolved from inside SRC, so "../{name}-split" is a folder next to the library;
+# {name} is SRC's own folder name. An absolute path is used as is.
+OUTPUT_DIR = "../{name}-split"
+
 FRONTMATTER = "[frontmatter]"
 
 
@@ -175,7 +180,7 @@ def process(job):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("src", type=Path, help="flat directory of PDFs (never modified)")
-    ap.add_argument("dst", type=Path, nargs="?", help="output directory (default: sibling '<SRC>-split')")
+    ap.add_argument("dst", type=Path, nargs="?", help=f"output directory (default: OUTPUT_DIR = {OUTPUT_DIR!r})")
     ap.add_argument("--dry-run", action="store_true", help="examine and log every file; write no PDFs")
     ap.add_argument("--limit", type=int, metavar="N", help="process a random sample of N files")
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1), help="parallel processes")
@@ -185,7 +190,7 @@ def main():
     a = ap.parse_args()
 
     src = a.src.expanduser().resolve()
-    dst = a.dst.expanduser().resolve() if a.dst else src.parent / f"{src.name}-split"
+    dst = (a.dst.expanduser() if a.dst else src / OUTPUT_DIR.format(name=src.name)).resolve()
     if not src.is_dir() or dst == src or src in dst.parents:
         ap.error("SRC must be a directory and DST must not be inside it")
     log = dst / "_log" / ("dry-run.jsonl" if a.dry_run else "results.jsonl")

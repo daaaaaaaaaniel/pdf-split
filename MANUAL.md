@@ -58,6 +58,9 @@ the output anywhere else, give that path as the second argument:
 python split_library.py /Volumes/X/my-library /Volumes/Y/splits
 ```
 
+To change the default itself, edit the `OUTPUT_DIR` constant at the top of
+the script (section 12).
+
 ## 4. Command reference
 
 ```
@@ -68,7 +71,7 @@ python split_library.py SRC [DST] [--dry-run] [--limit N] [--workers N]
 | Argument | Meaning |
 |---|---|
 | `SRC` | Flat directory of PDFs. Only top-level `*.pdf` files are considered (case-insensitive). Subfolders, hidden files and macOS `._` files are ignored and never logged. |
-| `DST` | Output directory, created if needed. If omitted, a folder next to `SRC` named `<SRC's name>-split`. Must not be `SRC` or inside it. |
+| `DST` | Output directory, created if needed. If omitted, the `OUTPUT_DIR` constant decides (section 12); as shipped, a folder next to `SRC` named `<SRC's name>-split`. Must not be `SRC` or inside it. |
 | `--dry-run` | Run the whole decision tree but write no PDFs. Outcomes go to `_log/dry-run.jsonl` instead of `results.jsonl`, so a dry run never affects a real run's resume logic. |
 | `--limit N` | Examine a random sample of N files from the work list. |
 | `--workers N` | Parallel worker processes. Default: CPU count minus one. Each worker is recycled after 50 files. |
@@ -305,10 +308,11 @@ bookmarks were lost lands in `no_outline` in pass 2, like any other.
 
 ## 12. Tuning
 
-Three constants at the top of the script:
+Four constants at the top of the script:
 
 | Constant | Default | Effect |
 |---|---|---|
+| `OUTPUT_DIR` | `"../{name}-split"` | Where output goes when no `DST` is given on the command line. A relative path is resolved from inside `SRC`, so the default means "next to the library"; `{name}` is replaced by `SRC`'s folder name. An absolute path such as `"/Volumes/Y/splits"` is used as is. A `DST` on the command line always overrides it. |
 | `MIN_CHAPTERS` | 2 | Fewer chapters than this → `single_chapter`. |
 | `MAX_CHAPTERS_PER_PAGE` | 0.50 | More chapters than this fraction of the page count → `too_many_chapters`. |
 | `MAX_CHAPTER_SHARE` | 0.95 | One chapter larger than this fraction of the book → `one_chapter_dominates`. |
