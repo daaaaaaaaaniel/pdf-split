@@ -75,7 +75,11 @@ Options:
    An interrupted run never leaves a half-written book.
 
 Chapter files keep the bookmarks nested under their chapter (re-based to the
-new file) and get the chapter title as their PDF metadata title. Pages before
+new file) and get the chapter title as their PDF metadata title. Their pages
+are labelled with their position in the source, so a chapter cut from pages
+294–305 opens showing "294" and "go to page 300" still lands on the same page
+as in the original. Printed page numbers on the pages are ignored; this is
+the PDF's own numbering, not the book's. Pages before
 the first chapter become `<book> - [frontmatter].pdf`.
 
 ## Naming

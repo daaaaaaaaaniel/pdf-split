@@ -149,7 +149,7 @@ def nested_bookmarks(toc: list[list], split_level: int, start: int, end: int):
     out = []
     for lvl, title, page in toc:
         if lvl > split_level and start <= page <= end:
-            out.append([lvl - split_level, title, page - start + 1])
+            out.append([lvl - split_level, re.sub(r"\s+", " ", title or "").strip(), page - start + 1])
     # set_toc requires the first entry at level 1 and no level jumps > 1
     prev = 0
     for entry in out:
@@ -259,6 +259,8 @@ def process_file(args: tuple) -> dict:
                             out.set_toc(bm)
                         except Exception:  # noqa: BLE001
                             pass
+                # keep the source's page numbering: page 294 of the book is still "294" here
+                out.set_page_labels([{"startpage": 0, "prefix": "", "style": "D", "firstpagenum": start}])
                 out.set_metadata({**{k: v for k, v in meta.items() if v}, "title": clean_title(title)})
                 out.save(tmp_dir / name, garbage=1)
                 written_pages += out.page_count
